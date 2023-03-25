@@ -1,5 +1,5 @@
 //jshint esversion:6
-
+require('dotenv').config()
 const express =require("express");              //using express module
 const bodyParser = require("body-parser");      // for geting values from html
 const ejs = require("ejs");                     // for templates
@@ -7,6 +7,8 @@ const mongoose = require("mongoose");           // require the dataBase into app
 mongoose.set("strictQuery", true);
 
 const encrypt = require("mongoose-encryption");
+
+console.log(process.env.API_KEY);
 
 const app = express();                          // our app is using the express middleware
 app.set("view engine", "ejs");                  // view ejs engine to app
@@ -22,8 +24,8 @@ const userSchema = new mongoose.Schema({
     password: String
 });
 
-const secret = "Thisisourlittlesecret."
-userSchema.plugin(encrypt, { secret: secret, encryptedFields: ["password"]});
+
+userSchema.plugin(encrypt, { secret: process.env.SECRET, encryptedFields: ["password"]});
 
 const User = mongoose.model("User", userSchema);
 
