@@ -9,15 +9,20 @@ mongoose.set("strictQuery", true);
 const session = require("express-session");     // express session for user login
 const passport =require("passport");            // passport for user login
 const passportLocalMongoose = require("passport-local-mongoose");   //mongoose level encyption for user
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const findOrCreate = require('mongoose-findorcreate');
 
+// our app is using the express middleware
+const app = express();
 
-
-const app = express();                          // our app is using the express middleware
-app.set("view engine", "ejs");                  // view ejs engine to app
+// view ejs engine to app                        
+app.set("view engine", "ejs");                  
 
 
 app.use(bodyParser.urlencoded({extended: true}));
-app.use(express.static("public"));              // using for static page like css
+
+// using for static page like css
+app.use(express.static("public"));
 
 app.use(session({
     secret: process.env.SECRET_KEY,
@@ -25,33 +30,85 @@ app.use(session({
     saveUninitialized: false
 }));
 
-app.use(passport.initialize());     //initialize the passpot into server
-app.use(passport.session());        //using session into passport
+//initialize the passpot into server
+app.use(passport.initialize());
 
+//using session into passport
+app.use(passport.session());
+
+//connect to mongoose finding and creating userDB
 const conn = mongoose.connect("mongodb://127.0.0.1:27017/userDB");
 
+//creating UserSchema from mongoose connection
 const userSchema = new mongoose.Schema({
     email: String,
-    password: String
+    password: String,
+    googleId: String
 });
 
-userSchema.plugin(passportLocalMongoose);       //pligin the user schema into the passport-mongoose
-
+//pligin the user schema into the passport-mongoose
+userSchema.plugin(passportLocalMongoose);       
+userSchema.plugin(findOrCreate);
 const User = mongoose.model("User", userSchema);
 
-passport.use(User.createStrategy());            // creating the strategy for the user
+// creating the strategy for the user
+passport.use(User.createStrategy());            
 
-passport.serializeUser(User.serializeUser());   // serializing the user with cookie
-passport.deserializeUser(User.deserializeUser());   // deserializing the user from the cookie
+// work with all kind of authentication strategies passport serialization
+passport.serializeUser(function(user, cb) {
+    process.nextTick(function() {
+      return cb(null, {
+        id: user.id,
+        username: user.username,
+        picture: user.picture
+      });
+    });
+});
 
+// work with all kind of authentication strategies passport dserialization
+passport.deserializeUser(function(user, cb) {
+    process.nextTick(function() {
+      return cb(null, user);
+    });
+});
+
+// creating a google strategy for to get clientsID, Secret and cllback from credentials
+passport.use(new GoogleStrategy({
+    clientID: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    callbackURL: "http://localhost:3000/auth/google/secrets"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    console.log(profile);
+    User.findOrCreate({ googleId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
+
+// get the home route of your application
 app.get("/", function(req, res){
     res.render("home");
 });
 
+//get the google authntication client profile
+app.get("/auth/google",
+  passport.authenticate("google", { scope: ["profile"] })
+);
+// the callback from the google authntication client
+app.get("/auth/google/secrets", 
+  passport.authenticate("google", { failureRedirect: "/login" }),
+  function(req, res) {
+    // Successful authentication, redirect to secrets.
+    res.redirect("/secrets");
+});
+
+// get login page route
 app.get("/login", function(req, res){
     res.render("login");
 });
 
+// get register the user route
 app.get("/register", function(req, res){
     res.render("register");
 });
@@ -79,6 +136,9 @@ app.get("/logout", function(req, res){
 });
 
 // register the new user inputing credentials
+//username from form
+//password from form
+//callback function for user
 app.post("/register", function(req, res){
     User.register({username: req.body.username}, req.body.password, function(err, user){
         if(err){
@@ -86,6 +146,7 @@ app.post("/register", function(req, res){
             res.redirect("/register");
         }
         else {
+            //local authentication of user credentials for secrete pages
             passport.authenticate("local") (req, res, function(){
                 res.redirect("/secrets");
             });
@@ -94,6 +155,8 @@ app.post("/register", function(req, res){
 });
 
 // login the user with it's credentials
+//username from form
+//password from form
 app.post("/login", function(req, res){
     const user = new User({
         username: req.body.username,
@@ -104,15 +167,16 @@ app.post("/login", function(req, res){
             console.log(err);
         }
         else {
-           passport.authenticate("local") (req, res, function(){
-            res.redirect("/secrets");
-           });
+            //local authentication of user credentials for secrete pages
+            passport.authenticate("local") (req, res, function(){
+                res.redirect("/secrets");
+            });
         }
     });
 });
 
 
-
+// server configuration on port 3000
 app.listen(3000, function(req,res){
     console.log("server listening on port 3000!")
 });
