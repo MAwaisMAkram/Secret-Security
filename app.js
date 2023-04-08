@@ -1,5 +1,5 @@
 //jshint esversion:6
-require('dotenv').config()
+require("dotenv").config()
 const express =require("express");              //using express module
 const bodyParser = require("body-parser");      // for geting values from html
 const ejs = require("ejs");                     // for templates
@@ -10,7 +10,9 @@ const session = require("express-session");     // express session for user logi
 const passport =require("passport");            // passport for user login
 const passportLocalMongoose = require("passport-local-mongoose");   //mongoose level encyption for user
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const findOrCreate = require('mongoose-findorcreate');
+const FacebookStrategy = require("passport-facebook").Strategy;
+const findOrCreate = require("mongoose-findorcreate");
+
 
 // our app is using the express middleware
 const app = express();
@@ -86,12 +88,26 @@ passport.use(new GoogleStrategy({
   }
 ));
 
+// creating a facebook strategy for to get clientsID, Secret and cllback from credentials
+passport.use(new FacebookStrategy({
+    clientID: process.env.APPLICATION_ID,
+    clientSecret: process.env.APPLICATION_SECRET,
+    callbackURL: "http://localhost:3000/auth/facebook/secrets"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    console.log(profile);
+    User.findOrCreate({ facebookId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
+
 // get the home route of your application
 app.get("/", function(req, res){
     res.render("home");
 });
 
-//get the google authntication client profile
+//get the google authentication client profile
 app.get("/auth/google",
   passport.authenticate("google", { scope: ["profile"] })
 );
@@ -100,6 +116,19 @@ app.get("/auth/google/secrets",
   passport.authenticate("google", { failureRedirect: "/login" }),
   function(req, res) {
     // Successful authentication, redirect to secrets.
+    res.redirect("/secrets");
+});
+
+//get the facebook authentication client profile
+app.get("/auth/facebook",
+  passport.authenticate("facebook", { scope: ["user_friends", "manage_pages"] })
+);
+
+// the callback from the google authntication client
+app.get("/auth/facebook/secrets",
+  passport.authenticate("facebook", { failureRedirect: "/login" }),
+  function(req, res) {
+    // Successful authentication, redirect secrets.
     res.redirect("/secrets");
 });
 
