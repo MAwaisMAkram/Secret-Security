@@ -1,5 +1,5 @@
 //jshint esversion:6
-require('dotenv').config()
+require("dotenv").config()
 const express =require("express");              //using express module
 const bodyParser = require("body-parser");      // for geting values from html
 const ejs = require("ejs");                     // for templates
@@ -11,7 +11,8 @@ const passport =require("passport");            // passport for user login
 const passportLocalMongoose = require("passport-local-mongoose");   //mongoose level encyption for user
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const FacebookStrategy = require("passport-facebook").Strategy;
-const findOrCreate = require('mongoose-findorcreate');
+const findOrCreate = require("mongoose-findorcreate");
+
 
 // our app is using the express middleware
 const app = express();
@@ -104,7 +105,7 @@ app.get("/", function(req, res){
     res.render("home");
 });
 
-//get the google authntication client profile
+//get the google authentication client profile
 app.get("/auth/google",
   passport.authenticate("google", { scope: ["profile"] })
 );
@@ -115,7 +116,6 @@ app.get("/auth/google/secrets",
     // Successful authentication, redirect to secrets.
     res.redirect("/secrets");
 });
-
 
 //get the facebook authentication client profile
 app.get("/auth/facebook",
