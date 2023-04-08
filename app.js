@@ -10,6 +10,7 @@ const session = require("express-session");     // express session for user logi
 const passport =require("passport");            // passport for user login
 const passportLocalMongoose = require("passport-local-mongoose");   //mongoose level encyption for user
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const FacebookStrategy = require("passport-facebook").Strategy;
 const findOrCreate = require('mongoose-findorcreate');
 
 // our app is using the express middleware
@@ -79,8 +80,20 @@ passport.use(new GoogleStrategy({
     callbackURL: "http://localhost:3000/auth/google/secrets"
   },
   function(accessToken, refreshToken, profile, cb) {
-    console.log(profile);
     User.findOrCreate({ googleId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
+
+// creating a facebook strategy for to get clientsID, Secret and cllback from credentials
+passport.use(new FacebookStrategy({
+    clientID: process.env.APPLICATION_ID,
+    clientSecret: process.env.APPLICATION_SECRET,
+    callbackURL: "http://localhost:3000/auth/facebook/secrets"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    User.findOrCreate({ facebookId: profile.id }, function (err, user) {
       return cb(err, user);
     });
   }
@@ -100,6 +113,19 @@ app.get("/auth/google/secrets",
   passport.authenticate("google", { failureRedirect: "/login" }),
   function(req, res) {
     // Successful authentication, redirect to secrets.
+    res.redirect("/secrets");
+});
+
+//get the facebook authentication client profile
+app.get("/auth/facebook",
+  passport.authenticate("facebook", { scope: ["user_friends", "manage_pages"] })
+);
+
+// the callback from the google authntication client
+app.get("/auth/facebook/secrets",
+  passport.authenticate("facebook", { failureRedirect: "/login" }),
+  function(req, res) {
+    // Successful authentication, redirect secrets.
     res.redirect("/secrets");
 });
 
