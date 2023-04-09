@@ -10,7 +10,7 @@ const session = require("express-session");     // express session for user logi
 const passport =require("passport");            // passport for user login
 const passportLocalMongoose = require("passport-local-mongoose");   //mongoose level encyption for user
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const FacebookStrategy = require("passport-facebook").Strategy;
+// const FacebookStrategy = require("passport-facebook").Strategy;
 const findOrCreate = require("mongoose-findorcreate");
 
 
@@ -45,7 +45,8 @@ const conn = mongoose.connect("mongodb://127.0.0.1:27017/userDB");
 const userSchema = new mongoose.Schema({
     email: String,
     password: String,
-    googleId: String
+    googleId: String,
+    secret: String
 });
 
 //pligin the user schema into the passport-mongoose
@@ -88,17 +89,17 @@ passport.use(new GoogleStrategy({
 ));
 
 // creating a facebook strategy for to get clientsID, Secret and cllback from credentials
-passport.use(new FacebookStrategy({
-    clientID: process.env.APPLICATION_ID,
-    clientSecret: process.env.APPLICATION_SECRET,
-    callbackURL: "http://localhost:3000/auth/facebook/secrets"
-  },
-  function(accessToken, refreshToken, profile, cb) {
-    User.findOrCreate({ facebookId: profile.id }, function (err, user) {
-      return cb(err, user);
-    });
-  }
-));
+// passport.use(new FacebookStrategy({
+//     clientID: process.env.APPLICATION_ID,
+//     clientSecret: process.env.APPLICATION_SECRET,
+//     callbackURL: "http://localhost:3000/auth/facebook/secrets"
+//   },
+//   function(accessToken, refreshToken, profile, cb) {
+//     User.findOrCreate({ facebookId: profile.id }, function (err, user) {
+//       return cb(err, user);
+//     });
+//   }
+// ));
 
 // get the home route of your application
 app.get("/", function(req, res){
@@ -118,17 +119,17 @@ app.get("/auth/google/secrets",
 });
 
 //get the facebook authentication client profile
-app.get("/auth/facebook",
-  passport.authenticate("facebook", { scope: ["user_friends", "manage_pages"] })
-);
+// app.get("/auth/facebook",
+//   passport.authenticate("facebook", { scope: ["user_friends", "manage_pages"] })
+// );
 
 // the callback from the google authntication client
-app.get("/auth/facebook/secrets",
-  passport.authenticate("facebook", { failureRedirect: "/login" }),
-  function(req, res) {
-    // Successful authentication, redirect secrets.
-    res.redirect("/secrets");
-});
+// app.get("/auth/facebook/secrets",
+//   passport.authenticate("facebook", { failureRedirect: "/login" }),
+//   function(req, res) {
+        // Successful authentication, redirect secrets.
+//     res.redirect("/secrets");
+// });
 
 // get login page route
 app.get("/login", function(req, res){
@@ -140,14 +141,48 @@ app.get("/register", function(req, res){
     res.render("register");
 });
 
-// get secret page and authenticate the user
+// get secret page where all the secrets Lie
 app.get("/secrets", function(req, res){
+    User.find({"secret": {$ne: null}}, function(err, foundUsers){
+        if (err) {
+            console.log(err);
+        }
+        else {
+            if (foundUsers) {
+                res.render("secrets", {userWithSecrets: foundUsers});
+            }
+        }
+    });
+});
+
+// get the submit page where user can type their secrets
+app.get("/submit", function(req, res){
     if (req.isAuthenticated()){
-        res.render("secrets");
+        res.render("submit");
     }
     else {
         res.redirect("/login");
     }
+});
+
+// Ever submit post will be handle here and save in DB
+app.post("/submit", function(req, res){
+    const submittedSecret = req.body.secret;
+
+    console.log(req.user);
+    User.findById(req.user.id, function(err, foundUser){
+        if (err) {
+            console.log(err);
+        }
+        else {
+            if (foundUser) {
+                foundUser.secret = submittedSecret;
+                foundUser.save(function(){
+                    res.redirect("/secrets");
+                });
+            }
+        }
+    });
 });
 
 // logout from the site
